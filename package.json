@@ -1,0 +1,26 @@
+{
+  "name": "reproduction-template",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",         
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.202.0", 
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/semantic-conventions": "^1.36.0",
+    "@opentelemetry/core": "^2.0.1",
+    "next": "canary",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.12",
+    "@types/react": "18.3.2",
+    "@types/react-dom": "18.3.0",
+    "typescript": "5.4.5"
+  }
+}
