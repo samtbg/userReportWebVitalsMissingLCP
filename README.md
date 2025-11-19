@@ -1,45 +1,51 @@
-This is a [Next.js](https://nextjs.org/) template to use when reporting a [bug in the Next.js repository](https://github.com/vercel/next.js/issues) with the `app/` directory.
+# Next.js LCP Reporting Bug Reproduction (App Router)
 
-## Getting Started
+This repository provides a minimal, reproducible example demonstrating a performance-related bug where the **Largest Contentful Paint (LCP) metric is consistently missed** by `useReportWebVitals` when the user is idle, but successfully captured when the user interacts.
 
-These are the steps you should follow when creating a bug report:
+This issue highlights a concern regarding LCP Finalization being delayed by heavy synchronous work beyond our custom idle timer.
 
-- Bug reports must be verified against the `next@canary` release. The canary version of Next.js ships daily and includes all features and fixes that have not been released to the stable version yet. Think of canary as a public beta. Some issues may already be fixed in the canary version, so please verify that your issue reproduces before opening a new issue. Issues not verified against `next@canary` will be closed after 30 days.
-- Make sure your issue is not a duplicate. Use the [GitHub issue search](https://github.com/vercel/next.js/issues) to see if there is already an open issue that matches yours. If that is the case, upvoting the other issue's first comment is desirable as we often prioritize issues based on the number of votes they receive. Note: Adding a "+1" or "same issue" comment without adding more context about the issue should be avoided. If you only find closed related issues, you can link to them using the issue number and `#`, eg.: `I found this related issue: #3000`.
-- If you think the issue is not in Next.js, the best place to ask for help is our [Discord community](https://nextjs.org/discord) or [GitHub discussions](https://github.com/vercel/next.js/discussions). Our community is welcoming and can often answer a project-related question faster than the Next.js core team.
-- Make the reproduction as minimal as possible. Try to exclude any code that does not help reproducing the issue. E.g. if you experience problems with Routing, including ESLint configurations or API routes aren't necessary. The less lines of code is to read through, the easier it is for the Next.js team to investigate. It may also help catching bugs in your codebase before publishing an issue.
-- Don't forget to create a new repository on GitHub and make it public so that anyone can view it and reproduce it.
+---
 
-## How to use this template
+## ⚙️ Environment Setup
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
+1.  **Clone the repository.**
+2.  **Install dependencies** (using the stable OTel versions provided):
+    ```bash
+    npm install --legacy-peer-deps
+    ```
+3.  **Start the development server:**
+    ```bash
+    npm run dev
+    ```
 
-```bash
-npx create-next-app --example reproduction-template reproduction-app
-```
+---
 
-```bash
-yarn create next-app --example reproduction-template reproduction-app
-```
+## 🔎 Reproduction Steps
 
-```bash
-pnpm create next-app --example reproduction-template reproduction-app
-```
+The application runs on `http://localhost:3000`. You must observe the **browser console** for the logs.
 
-## Learn More
+### ❌ Scenario 1 (FAIL - Idle User)
 
-To learn more about Next.js, take a look at the following resources:
+This demonstrates the missing LCP report:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [How to Contribute to Open Source (Next.js)](https://www.youtube.com/watch?v=cuoNzXFLitc) - a video tutorial by Lee Robinson
-- [Triaging in the Next.js repository](https://github.com/vercel/next.js/blob/canary/contributing.md#triaging) - how we work on issues
-- [CodeSandbox](https://codesandbox.io/s/github/vercel/next.js/tree/canary/examples/reproduction-template) - Edit this repository on CodeSandbox
+1.  Open DevTools console and clear it.
+2.  **Reload the page.** You will immediately see **TTFB** and **FCP** metrics recorded.
+3.  Wait **12 seconds** without moving or clicking the mouse.
+4.  **Result:** The console will show the "10-second timer fired" message. The OTel flush runs, and the log will confirm **TTFB and FCP were sent, but LCP is missing.**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+### ✅ Scenario 2 (SUCCESS - Interactive User)
 
-## Deployment
+This demonstrates the required workaround:
 
-If your reproduction needs to be deployed, the easiest way is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1.  Open DevTools console and clear it.
+2.  **Reload the page.**
+3.  Wait **5 seconds** (the blue LCP element is visible).
+4.  **Click once anywhere on the white space.** The console will show the LCP metric recorded immediately after the click.
+5.  Wait for the 10-second timer to fire (5 more seconds).
+6.  **Result:** The console will successfully show **TTFB, FCP, and LCP** being sent.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 💡 Diagnosis
+
+The reproduction works quickly, but our production applications exhibit Scenario 1 (FAIL). We suspect that a long-running, synchronous initialization task (like `Sentry.init()`) in the `instrumentation-client.ts` file in our production apps delays the browser's LCP Finalization event past 10 seconds. The mouse click acts as a fallback to force the metric to finalize, confirming the metric is present but pending submission.
